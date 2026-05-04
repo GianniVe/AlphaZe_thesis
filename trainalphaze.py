@@ -6,18 +6,11 @@ import logging
 import numpy as np
 
 # ── JAX / backend ────────────────────────────────────────────────────────────
-#os.environ["JAX_PLATFORM_NAME"] = "cpu"
-
-# ── OpenSpiel path ────────────────────────────────────────────────────────────
-#OPEN_SPIEL_PATH = os.path.join(
-#    os.path.dirname(os.path.abspath(__file__)),
-#    "../3rdparty/open_spiel"
-#)
-#if OPEN_SPIEL_PATH not in sys.path:
-#    sys.path.insert(0, OPEN_SPIEL_PATH)
+os.environ["JAX_PLATFORM_NAME"] = "cpu"
 
 import pyspiel
 from open_spiel.python.algorithms import mcts
+from open_spiel.python.algorithms.alpha_zero import alpha_zero
 from open_spiel.python.algorithms.alpha_zero import model as model_lib
 from open_spiel.python.algorithms.alpha_zero.model import TrainInput
 from open_spiel.python.algorithms.alpha_zero.evaluator import AlphaZeroEvaluator
@@ -53,7 +46,7 @@ UCT_C             = 1.5
 SELECTION_TEMP    = 1.0
 
 MODEL_TYPE     = "resnet"
-CHECKPOINT_DIR = "./hex_alphaze_checkpoint_2"
+CHECKPOINT_DIR = "./darkhex_alphaze_checkpoints"
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 FORCE_FRESH_START = False
