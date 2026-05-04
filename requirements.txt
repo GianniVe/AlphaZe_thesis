@@ -1,0 +1,8 @@
+open-spiel==1.6.12
+tensorflow-cpu==2.16.1
+keras==3.3.3
+numpy==1.26.4
+jax==0.4.26
+jaxlib==0.4.26
+absl-py
+attrs
