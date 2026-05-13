@@ -46,25 +46,25 @@ BOARD_SIZE     = 3
 NUM_CELLS      = BOARD_SIZE * BOARD_SIZE
 NUM_OBS_PLANES = 9
 
-NUM_EPOCHS        = 50
-TSL_DECAY_EPOCHS  = 20
-SAMPLES_PER_EPOCH = 100
-SIMULATION_BUDGET = 800
-N_WORLDS          = 10
+NUM_EPOCHS        = 100
+TSL_DECAY_EPOCHS  = 15
+SAMPLES_PER_EPOCH = 30
+SIMULATION_BUDGET = 20
+N_WORLDS          = 5
 UCT_C             = 1.5
 SELECTION_TEMP    = 1.0
 
 # ── Replay buffer ─────────────────────────────────────────────────────────────
-BUFFER_MAX_SIZE         = 500_000
-TRAIN_SAMPLES_PER_EPOCH = 50_000
+BUFFER_MAX_SIZE         = 50_000
+TRAIN_SAMPLES_PER_EPOCH = 10_000
 
 # ── Batch size ──────────────────────────────────
-BATCH_SIZE = 512
+BATCH_SIZE = 256
 
 # ── Overfitting / early stopping ──────────────────────────────────────────────
 VALIDATION_FRACTION = 0.10
-OVERFIT_RATIO       = 1.25
-OVERFIT_PATIENCE    = 5
+OVERFIT_RATIO       = 2.0
+OVERFIT_PATIENCE    = 15
 
 # ── Generational self-play ────────────────────────────────────────────────────
 EVAL_GAMES    = 20
@@ -72,14 +72,14 @@ WIN_THRESHOLD = 0.55
 
 MODEL_TYPE = "resnet"
 
-CHECKPOINT_DIR = f"./darkhex_alphaze_checkpoints_{MOVE_GEN}"
+CHECKPOINT_DIR = f"./darkhex_alphaze_checkpoints_2{MOVE_GEN}"
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 FORCE_FRESH_START = False
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CHECKPOINT RESUME HELPER  (your original, unchanged)
+# CHECKPOINT RESUME HELPER
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def find_latest_checkpoint(checkpoint_dir):
@@ -472,16 +472,42 @@ def evaluate_vs_champion(new_model, champion_model, n_games=EVAL_GAMES):
 def compute_val_ce(model, val_inputs):
     if not val_inputs:
         return None
+
+    tgt_arr = np.array([t.policy      for t in val_inputs], dtype=np.float32)
     obs_arr = np.array([t.observation for t in val_inputs], dtype=np.float32)
     msk_arr = np.array([t.legals_mask for t in val_inputs], dtype=np.float32)
-    tgt_arr = np.array([t.policy      for t in val_inputs], dtype=np.float32)
+
+    # Run inference in small chunks — large batches can return nan from the
+    # TF1 session when memory is tight
+    INFER_BATCH  = 256
+    all_policies = []
     try:
-        policy_batch, _ = model.inference(obs_arr, msk_arr)
-        ce = -(tgt_arr * np.log(policy_batch + 1e-30)).sum(axis=1).mean()
-        return float(ce)
+        for i in range(0, len(val_inputs), INFER_BATCH):
+            p_b, _ = model.inference(
+                obs_arr[i : i + INFER_BATCH],
+                msk_arr[i : i + INFER_BATCH]
+            )
+            all_policies.append(p_b)
+        policy_batch = np.concatenate(all_policies, axis=0)
     except Exception as e:
-        log.warning(f"  Val CE failed: {e}")
+        log.warning(f"  Val CE failed during inference: {e}")
         return None
+
+    # Guard: if the network output contains nan/inf, skip rather than propagate
+    if not np.isfinite(policy_batch).all():
+        log.warning("  Val CE: non-finite values in model output — skipping.")
+        return None
+
+    # Clip to avoid log(0) — 1e-30 is too small and can still produce nan
+    # when multiplied by a near-zero target; 1e-7 is safer
+    policy_batch = np.clip(policy_batch, 1e-7, 1.0)
+    ce = -(tgt_arr * np.log(policy_batch)).sum(axis=1).mean()
+
+    if not np.isfinite(ce):
+        log.warning("  Val CE: nan/inf after computation — skipping.")
+        return None
+
+    return float(ce)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -582,7 +608,7 @@ for epoch in range(START_EPOCH, NUM_EPOCHS):
                 action = random.choice(state.legal_actions())
             state.apply_action(action)
             step += 1
-            if step > NUM_CELLS * 3:
+            if step > NUM_CELLS * NUM_CELLS:
                 log.warning("Step limit — truncating.")
                 break
 
@@ -645,7 +671,11 @@ for epoch in range(START_EPOCH, NUM_EPOCHS):
     val_ce = compute_val_ce(new_model, val_inputs)
     if val_ce is not None:
         log.info(f"  Val cross-entropy              : {val_ce:.4f}")
-        if val_ce > mean_train_loss * OVERFIT_RATIO:
+        if len(replay_buffer) < 5_000:
+            log.info(f"  Early stopping check skipped "
+                     f"(buffer {len(replay_buffer):,} < 5,000 minimum)")
+            overfit_count = 0
+        elif val_ce > mean_train_loss * OVERFIT_RATIO:
             overfit_count += 1
             log.warning(f"  Overfit signal "
                         f"({overfit_count}/{OVERFIT_PATIENCE}): "

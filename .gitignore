@@ -3,3 +3,4 @@ __pycache__/
 checkpoints/
 venv/
 .DS_Store
+darkhex_alphaze_checkpoints_*/
