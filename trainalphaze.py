@@ -42,24 +42,24 @@ assert MOVE_GEN in ("PC_PIMC", "SO_ISMCTS"), \
 # ═══════════════════════════════════════════════════════════════════════════════
 # CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════════════
-BOARD_SIZE     = 3
+BOARD_SIZE     = 5
 NUM_CELLS      = BOARD_SIZE * BOARD_SIZE
 NUM_OBS_PLANES = 9
 
-NUM_EPOCHS        = 100
-TSL_DECAY_EPOCHS  = 15
-SAMPLES_PER_EPOCH = 30
-SIMULATION_BUDGET = 20
+NUM_EPOCHS        = 200
+TSL_DECAY_EPOCHS  = 30
+SAMPLES_PER_EPOCH = 200
+SIMULATION_BUDGET = 4000
 N_WORLDS          = 5
 UCT_C             = 1.5
 SELECTION_TEMP    = 1.0
 
 # ── Replay buffer ─────────────────────────────────────────────────────────────
-BUFFER_MAX_SIZE         = 50_000
-TRAIN_SAMPLES_PER_EPOCH = 10_000
+BUFFER_MAX_SIZE         = 500_000
+TRAIN_SAMPLES_PER_EPOCH = 50_000
 
 # ── Batch size ──────────────────────────────────
-BATCH_SIZE = 256
+BATCH_SIZE = 512
 
 # ── Overfitting / early stopping ──────────────────────────────────────────────
 VALIDATION_FRACTION = 0.10
@@ -127,7 +127,7 @@ def save_checkpoint(model, epoch):
 # GAMES
 # ═══════════════════════════════════════════════════════════════════════════════
 dark_hex_game = pyspiel.load_game(
-    f"dark_hex(num_rows={BOARD_SIZE},num_cols={BOARD_SIZE})"
+    f"dark_hex(num_rows={BOARD_SIZE},num_cols={BOARD_SIZE},gameversion=adh)"
 )
 hex_game = pyspiel.load_game(
     f"hex(num_rows={BOARD_SIZE},num_cols={BOARD_SIZE})"
@@ -519,10 +519,10 @@ def build_model(checkpoint_path=None):
         MODEL_TYPE,
         OBS_SHAPE,
         NUM_ACTIONS,
-        nn_width=64,
-        nn_depth=4,
+        nn_width=128,
+        nn_depth=6,
         weight_decay=1e-4,
-        learning_rate=5e-4,
+        learning_rate=0.01,
         path=CHECKPOINT_DIR,
     )
     if checkpoint_path is not None:

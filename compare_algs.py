@@ -67,12 +67,10 @@ NUM_OBS_PLANES = 9
 MODEL_TYPE     = "resnet"
 OBS_SHAPE      = [BOARD_SIZE, BOARD_SIZE, NUM_OBS_PLANES]
 
-# Simulation budget for move selection during comparison
-# Use the same budget both algorithms were trained with
 SIMULATION_BUDGET = 200
-N_WORLDS          = 5     # PC-PIMC: SIMULATION_BUDGET // N_WORLDS per world
+N_WORLDS          = 5
 UCT_C             = 1.5
-SELECTION_TEMP    = 0.0   # greedy during evaluation (no exploration noise)
+SELECTION_TEMP    = 0.0
 
 PC_PIMC_CHECKPOINT_DIR  = "./darkhex_alphaze_checkpoints_PC_PIMC"
 SO_ISMCTS_CHECKPOINT_DIR = "./darkhex_alphaze_checkpoints_SO_ISMCTS"
@@ -82,7 +80,7 @@ SO_ISMCTS_CHECKPOINT_DIR = "./darkhex_alphaze_checkpoints_SO_ISMCTS"
 # GAMES
 # ═══════════════════════════════════════════════════════════════════════════════
 dark_hex_game = pyspiel.load_game(
-    f"dark_hex(num_rows={BOARD_SIZE},num_cols={BOARD_SIZE})"
+    f"dark_hex(num_rows={BOARD_SIZE},num_cols={BOARD_SIZE},gameversion=adh)"
 )
 hex_game = pyspiel.load_game(
     f"hex(num_rows={BOARD_SIZE},num_cols={BOARD_SIZE})"
@@ -96,7 +94,6 @@ NUM_ACTIONS = hex_game.num_distinct_actions()
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def find_latest_checkpoint(checkpoint_dir):
-    """Return path to the highest-numbered checkpoint in checkpoint_dir."""
     pattern     = os.path.join(checkpoint_dir, "model.ckpt-*.index")
     index_files = glob.glob(pattern)
     if not index_files:
@@ -116,7 +113,6 @@ def find_latest_checkpoint(checkpoint_dir):
 
 
 def load_model(checkpoint_path, checkpoint_dir):
-    """Build model graph and restore weights from checkpoint."""
     m = model_lib.Model.build_model(
         MODEL_TYPE,
         OBS_SHAPE,
@@ -154,7 +150,6 @@ def legal_mask_from_world(world):
     return mask
 
 def sample_action_greedy(policy, mask):
-    """Greedy action selection — no temperature during evaluation."""
     probs = policy * mask
     if probs.sum() < 1e-8:
         return int(np.random.choice(np.where(mask > 0)[0]))
@@ -174,7 +169,7 @@ def visits_to_policy(root, mask):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# WORLD SAMPLING  (shared by both algorithms)
+# WORLD SAMPLING
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def decode_board(dark_hex_state):
@@ -366,11 +361,6 @@ def get_ismcts_move(dark_hex_state, model):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def play_game(model_p0, algo_p0, model_p1, algo_p1, game_num, verbose=False):
-    """
-    Play one DarkHex game.
-    algo_p0 / algo_p1: "PC_PIMC" or "SO_ISMCTS" — determines move selection.
-    Returns: (winner: 0 or 1, move_count: int)
-    """
     state     = dark_hex_game.new_initial_state()
     move_count = 0
 
@@ -390,7 +380,7 @@ def play_game(model_p0, algo_p0, model_p1, algo_p1, game_num, verbose=False):
         state.apply_action(action)
         move_count += 1
 
-        if move_count > NUM_CELLS * 4:
+        if move_count > NUM_CELLS * NUM_CELLS:
             log.warning(f"  Game {game_num}: step limit hit — forcing terminal.")
             break
 
@@ -408,10 +398,6 @@ def play_game(model_p0, algo_p0, model_p1, algo_p1, game_num, verbose=False):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def run_comparison(pc_model, iso_model, games_per_side=100):
-    """
-    Play games_per_side games with PC-PIMC as P0, then games_per_side with
-    SO-ISMCTS as P0.  Reports detailed win/loss statistics.
-    """
     print("\n" + "═"*60)
     print("  AlphaZe** Algorithm Comparison")
     print("  PC-PIMC  vs  SO-ISMCTS")
@@ -479,9 +465,6 @@ def run_comparison(pc_model, iso_model, games_per_side=100):
     avg_moves = np.mean(move_counts)
     std_moves = np.std(move_counts)
 
-    # Binomial test: is the winner's advantage statistically significant?
-    # H0: both algorithms equally strong (p = 0.5)
-    # We test the more successful algorithm's win count
     best_wins = max(pc_total_wins, iso_total_wins)
     binom_result = stats.binomtest(best_wins, total_games, p=0.5,
                                    alternative="greater")
@@ -575,7 +558,6 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-    # Override budget if specified
     SIMULATION_BUDGET = args.budget
 
     # ── Load PC-PIMC model ────────────────────────────────────────────────
