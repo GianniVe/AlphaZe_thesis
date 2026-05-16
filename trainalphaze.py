@@ -5,8 +5,7 @@ import random
 import logging
 import numpy as np
 
-# ── JAX / backend ────────────────────────────────────────────────────────────
-os.environ["JAX_PLATFORM_NAME"] = "cpu"
+os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
 import pyspiel
 from open_spiel.python.algorithms import mcts
@@ -64,7 +63,7 @@ BATCH_SIZE = 512
 # ── Overfitting / early stopping ──────────────────────────────────────────────
 VALIDATION_FRACTION = 0.10
 OVERFIT_RATIO       = 2.0
-OVERFIT_PATIENCE    = 15
+OVERFIT_PATIENCE    = 20
 
 # ── Generational self-play ────────────────────────────────────────────────────
 EVAL_GAMES    = 20
@@ -72,7 +71,7 @@ WIN_THRESHOLD = 0.55
 
 MODEL_TYPE = "resnet"
 
-CHECKPOINT_DIR = f"./darkhex_alphaze_checkpoints_2{MOVE_GEN}"
+CHECKPOINT_DIR = f"/scratch/darkhex_alphaze_checkpoints_{MOVE_GEN}"
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 FORCE_FRESH_START = False

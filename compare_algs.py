@@ -33,9 +33,9 @@ import random
 import argparse
 import logging
 import numpy as np
-from scipy import stats   # for binomial test — install with: pip install scipy
+from scipy import stats
 
-os.environ["JAX_PLATFORM_NAME"] = "cpu"
+os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
 import pyspiel
 from open_spiel.python.algorithms import mcts
@@ -61,19 +61,19 @@ model_lib.batch_norm = _patched_batch_norm
 # ═══════════════════════════════════════════════════════════════════════════════
 # CONFIG — must match trainalphaze.py exactly
 # ═══════════════════════════════════════════════════════════════════════════════
-BOARD_SIZE     = 3
+BOARD_SIZE     = 5
 NUM_CELLS      = BOARD_SIZE * BOARD_SIZE
 NUM_OBS_PLANES = 9
 MODEL_TYPE     = "resnet"
 OBS_SHAPE      = [BOARD_SIZE, BOARD_SIZE, NUM_OBS_PLANES]
 
-SIMULATION_BUDGET = 200
+SIMULATION_BUDGET = 4000
 N_WORLDS          = 5
 UCT_C             = 1.5
 SELECTION_TEMP    = 0.0
 
-PC_PIMC_CHECKPOINT_DIR  = "./darkhex_alphaze_checkpoints_PC_PIMC"
-SO_ISMCTS_CHECKPOINT_DIR = "./darkhex_alphaze_checkpoints_SO_ISMCTS"
+PC_PIMC_CHECKPOINT_DIR  = "/scratch/darkhex_alphaze_checkpoints_PC_PIMC"
+SO_ISMCTS_CHECKPOINT_DIR = "/scratch/darkhex_alphaze_checkpoints_SO_ISMCTS"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -117,10 +117,10 @@ def load_model(checkpoint_path, checkpoint_dir):
         MODEL_TYPE,
         OBS_SHAPE,
         NUM_ACTIONS,
-        nn_width=64,
-        nn_depth=4,
+        nn_width=128,
+        nn_depth=6,
         weight_decay=1e-4,
-        learning_rate=5e-4,
+        learning_rate=0.01,
         path=checkpoint_dir,
     )
     m.load_checkpoint(checkpoint_path)
